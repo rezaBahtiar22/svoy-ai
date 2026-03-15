@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
+import { DocumentService } from "./services/document";
 
 const app = new Elysia()
   .use(cors({
@@ -41,13 +42,18 @@ const app = new Elysia()
           .get("/", () => {
             return { message: "List of documents will be here" };
           })
-          .post("/upload", ({ body }) => {
-            return { id: "doc_1", status: "processing" };
+          .post("/upload", async ({ body }) => {
+            const { file } = body;
+            return await DocumentService.processUpload(file);
           }, {
             body: t.Object({
-              title: t.String(),
-              tags: t.Array(t.String()),
-            })
+              file: t.File(),
+            }),
+            type: "multipart/form-data",
+            detail: {
+              summary: "Upload and extract text from PDF/TXT file",
+              tags: ["Document"],
+            }
           })
       )
 
