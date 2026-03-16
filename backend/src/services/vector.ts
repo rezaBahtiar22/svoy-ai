@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // API di Supabase
 const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseKey = process.env.SUPABASE_KEY!;
 
 if (!supabaseUrl || !supabaseKey) {
     throw new Error(
@@ -61,8 +61,8 @@ export class VectorService {
         // Panggil fungsi SQL 'match_documents'
         const { data, error } = await supabase.rpc('match_documents', {
             query_embedding: query_embedding,
-            match_threshold: 0.5, // Tingkat kemiripan (0.5 = cukup mirip)
-            match_count: 5,        // Ambil 5 potongan terbaik
+            match_threshold: 0.2,
+            match_count: 15,
         });
 
         if (error) {

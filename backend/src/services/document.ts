@@ -40,16 +40,29 @@ export const DocumentService = {
             await writeFile(filePath, buffer);
 
             let rawText = "";
-            let title = "Untitled";
+            let title = "";
+            let contributorInfo = "";
 
             if (file.type === "application/pdf") {
                 const pdfDoc = await PDFDocument.load(arrayBuffer);
-                title = pdfDoc.getTitle() || file.name;
+                // 1. Coba ambil dari metadata bawaan file
+                title = pdfDoc.getTitle() || "";
                 
                 const data = await pdfExtract(buffer);
                 rawText = data.text;
+
+                // Ambil baris pertama yang memiliki teks minimal 5 karakter (menghindari baris kosong)
+                const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 5);
+
+                // 2. REKOMENDASI: Jika metadata kosong atau "Untitled", ambil baris pertama teks sebagai judul
+                if (!title || title.trim().toLowerCase() === "untitled") {
+                    title = lines[0] || file.name; 
+                }
+                // Ambil 5-10 baris pertama sebagai informasi kontributor
+                contributorInfo = lines.slice(0, 10).join(", ");
             } else {
                 rawText = new TextDecoder().decode(buffer);
+                title = file.name;
             }
 
             // Membersihkan teks agar kalimat yang terpisah baris menyambung kembali
@@ -58,7 +71,8 @@ export const DocumentService = {
                 .replace(/\s+/g, " ")           // Ubah spasi ganda menjadi spasi tunggal
                 .trim();
 
-            const fullText = `JUDUL ARTIKEL: ${title}\n\nISI DOKUMEN:\n${cleanText}`;
+            // REKOMENDASI: Gunakan format yang sangat jelas agar AI tahu mana judul mana isi
+            const fullText = `JUDUL DOKUMEN: ${title}\n\nISI LENGKAP ARTIKEL:\n${cleanText}`;
 
             const chunks = this.createChunks(fullText);
 
@@ -66,6 +80,7 @@ export const DocumentService = {
                 text: chunk,
                 metadata: {
                     fileName: file.name,
+                    title: title, // Tambahkan title ke metadata jika diperlukan
                     uploadedAt: new Date().toISOString()
                 }
             }));
