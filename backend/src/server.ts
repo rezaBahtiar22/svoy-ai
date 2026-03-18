@@ -51,7 +51,7 @@ const app = new Elysia()
           })
 
           .get("/chat", async ({ query }) => {
-            const question = query.q as string;
+            const question = query.n as string;
             if (!question) return { error: "Pertanyaan tidak boleh kosong" };
 
             try {

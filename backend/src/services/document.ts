@@ -43,23 +43,32 @@ export const DocumentService = {
             let title = "";
             let contributorInfo = "";
 
+            // Bersihkan nama file  dari karakter spesial
+            const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+
             if (file.type === "application/pdf") {
                 const pdfDoc = await PDFDocument.load(arrayBuffer);
+                const internalTitle = pdfDoc.getTitle();
                 // 1. Coba ambil dari metadata bawaan file
                 title = pdfDoc.getTitle() || "";
                 
                 const data = await pdfExtract(buffer);
                 rawText = data.text;
 
-                // Ambil baris pertama yang memiliki teks minimal 5 karakter (menghindari baris kosong)
+                // Membersihkan baris untuk ekstraksi judul & penulis
                 const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 5);
 
-                // 2. REKOMENDASI: Jika metadata kosong atau "Untitled", ambil baris pertama teks sebagai judul
-                if (!title || title.trim().toLowerCase() === "untitled") {
-                    title = lines[0] || file.name; 
+                // 2. Jika metadata kosong atau "Untitled", ambil baris pertama teks sebagai judul
+                if (fileNameWithoutExt.length > 20) {
+                    title = fileNameWithoutExt
+                } else if (internalTitle && internalTitle !== "Untitled") {
+                    title = internalTitle;
+                } else {
+                    title = lines[0] || fileNameWithoutExt;
                 }
-                // Ambil 5-10 baris pertama sebagai informasi kontributor
-                contributorInfo = lines.slice(0, 10).join(", ");
+
+                // Ambil kontributor tetap dari baris pertama teks
+                contributorInfo = lines.slice(1, 5).join(", ");
             } else {
                 rawText = new TextDecoder().decode(buffer);
                 title = file.name;
@@ -71,8 +80,12 @@ export const DocumentService = {
                 .replace(/\s+/g, " ")           // Ubah spasi ganda menjadi spasi tunggal
                 .trim();
 
-            // REKOMENDASI: Gunakan format yang sangat jelas agar AI tahu mana judul mana isi
-            const fullText = `JUDUL DOKUMEN: ${title}\n\nISI LENGKAP ARTIKEL:\n${cleanText}`;
+            /**
+             * PERUBAHAN UTAMA: 
+             * Memasukkan JUDUL dan KONTRIBUTOR ke dalam teks yang akan di-chunk.
+             * Dengan begini, informasi ini akan ikut tersimpan di setiap potongan teks di Supabase.
+             */
+            const fullText = `JUDUL DOKUMEN: ${title}\nKONTRIBUTOR/PENULIS: ${contributorInfo}\n\nISI LENGKAP ARTIKEL:\n${cleanText}`;
 
             const chunks = this.createChunks(fullText);
 
@@ -80,7 +93,7 @@ export const DocumentService = {
                 text: chunk,
                 metadata: {
                     fileName: file.name,
-                    title: title, // Tambahkan title ke metadata jika diperlukan
+                    title: title,
                     uploadedAt: new Date().toISOString()
                 }
             }));
@@ -90,7 +103,7 @@ export const DocumentService = {
             return {
                 fileName: file.name,
                 totalChunks: chunks.length,
-                message: "Dokumen berhasil diproses! Silakan coba chat kembali."
+                message: "Dokumen berhasil diproses dengan metadata penulis! Silakan coba chat kembali."
             };
         } catch (error: any) {
             console.error("❌ Svoy-AI Error:", error.message);
